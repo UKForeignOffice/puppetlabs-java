@@ -110,6 +110,19 @@ class java (
     default    => '--jre'
   }
 
+  # TEMPORARY FIX: If no repos are configured on SLES, add openSUSE Leap as fallback
+  # This workaround is needed because GCP-provisioned SLES images are unregistered BYOS
+  # without any package repositories configured. Remove this once proper PAYG images are used.
+  if ($facts['os']['family'] in ['SLES', 'SUSE']) {
+    exec { 'Configure zypper repo for SLES':
+      path      => '/bin:/usr/bin:/sbin:/usr/sbin',
+      command   => 'zypper --non-interactive --gpg-auto-import-keys ar http://download.opensuse.org/distribution/leap/15.6/repo/oss/ opensuse-leap-fallback && zypper --non-interactive --gpg-auto-import-keys refresh',
+      unless    => "zypper lr 2>/dev/null | grep -q 'opensuse-leap-fallback\\|http'",
+      logoutput => true,
+    }
+    -> Package['java']
+  }
+
   if $facts['os']['family'] == 'Debian' {
     # Needed for update-java-alternatives
     package { 'java-common':
